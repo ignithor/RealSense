@@ -6,69 +6,50 @@ import cv2
 pipeline = rs.pipeline()
 config = rs.config()
 
-# Get device product line for setting a supporting resolution
-pipeline_wrapper = rs.pipeline_wrapper(pipeline)
-pipeline_profile = config.resolve(pipeline_wrapper)
-device = pipeline_profile.get_device()
-device_product_line = str(device.get_info(rs.camera_info.product_line))
-
-# Check if the D435i is connected (or another D400 series camera)
-if (device_product_line == 'D400'):
-    print("Connecting to D400 series camera (e.g., D435i)")
-    # Configure the RGB stream
-    # We use 640x480 @ 30fps. You can change this.
-    config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
-else:
-    print(f"Connected to {device_product_line}. This script is optimized for D400 series.")
-    # Fallback to a common configuration
-    config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+print("Connecting to D435i camera...")
+config.enable_stream(rs.stream.color, 640, 480, rs.format.bgr8, 30)
+# --- NOTE: We are enabling IR (1) and DISABLING Depth ---
+config.enable_stream(rs.stream.infrared, 1, 640, 480, rs.format.y8, 30) # Index 1 for Left
 
 # Start streaming
-pipeline.start(config)
-print("Pipeline started. Press 'q' to quit.")
+try:
+    profile = pipeline.start(config)
+    print("Pipeline started (Color + IR). Press 'q' to quit.")
+except RuntimeError as e:
+    print(f"Error starting pipeline: {e}")
+    exit()
 
 try:
     while True:
-        # Wait for a coherent pair of frames: depth and color
         frames = pipeline.wait_for_frames()
-        color_frame = frames.get_color_frame()
         
-        # If no color frame is captured, skip this loop iteration
-        if not color_frame:
+        color_frame = frames.get_color_frame()
+        ir_frame = frames.get_infrared_frame(1) # Get IR frame
+        
+        if not color_frame or not ir_frame:
             continue
 
-        # Convert the color frame data to a numpy array
-        # This is the image data we can process
+        # --- 1. Process Video Streams ---
         color_image = np.asanyarray(color_frame.get_data())
-
-        # ----------------------------------
-        # --- YOUR PROCESSING GOES HERE ---
-        # ----------------------------------
-        #
-        # 'color_image' is your OpenCV-compatible BGR image.
-        #
-        # Example: Convert to grayscale
-        # gray_image = cv2.cvtColor(color_image, cv2.COLOR_BGR2GRAY)
-        #
-        # Example: Draw a simple red rectangle
-        # cv2.rectangle(color_image, (100, 100), (200, 200), (0, 0, 255), 2)
-        #
-        # For this demo, we will just display the original color_image.
-        #
-        processed_image = color_image # Replace 'color_image' with your processed frame
         
+        # Get IR image (it's grayscale)
+        ir_image = np.asanyarray(ir_frame.get_data())
+        # Convert to 3-channel BGR so we can stack it
+        ir_display = cv2.cvtColor(ir_image, cv2.COLOR_GRAY2BGR)
 
-        # Display the resulting image
-        cv2.namedWindow('RealSense RGB Stream', cv2.WINDOW_AUTOSIZE)
-        cv2.imshow('RealSense RGB Stream', processed_image)
+        
+        # --- 2. Display Streams ---
+        # Stack images horizontally
+        combined_display = np.hstack((color_image, ir_display))
 
-        # Wait for a key press and exit if 'q' is pressed
+        cv2.namedWindow('D435i Video Streams (RGB + Infrared)', cv2.WINDOW_AUTOSIZE)
+        cv2.imshow('D435i Video Streams (RGB + Infrared)', combined_display)
+        
         key = cv2.waitKey(1)
         if key & 0xFF == ord('q'):
             break
 
 finally:
-    # Stop streaming and clean up
     print("Stopping pipeline...") 
     pipeline.stop()
     cv2.destroyAllWindows()

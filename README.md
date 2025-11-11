@@ -11,6 +11,8 @@ conda activate realsense
 
 ```bash
 pip install open3d opencv-python numpy
+pip install ultralytics transformers torch
+pip install pillow
 ```
 
 if Linux (Ubuntu 20.04):
@@ -22,6 +24,5 @@ if Windows:
 ```powershell
 pip install pyrealsense2==2.50.0.3812
 ```
-
 
 

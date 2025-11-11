@@ -3,7 +3,7 @@ import numpy as np
 import sys
 
 
-def is_image_dark(image: np.ndarray, threshold: int = 10) -> bool:
+def is_image_dark(image: np.ndarray, threshold: int = 15) -> bool:
     """
     Determines if an image is dark by calculating the mean of its
     Value (V) channel in the HSV color space.
